@@ -30,6 +30,9 @@ logging.basicConfig(filename='compress.log', encoding='utf-8' ,level=logging.INF
 
 walk_dir = sys.argv[1]
 
+if not os.path.isdir(walk_dir):
+  print("Invalid Directory: " + walk_dir)
+  sys.exit(1)
 
 for root, subdirs, files in os.walk(walk_dir):
   if '.phy' in subdirs:
@@ -37,10 +40,15 @@ for root, subdirs, files in os.walk(walk_dir):
     
   for file in files:
     if file.endswith('.bin'):
+      logging.info('checking .meta for ' + file)
       # we found a file of type .bin to compress
       # if the meta file doesn't exist, we can't find out the info we need for compression
       meta_filename = file[:-4] + '.meta'
-      if not os.path.exists(os.path.join(root, meta_filename)) or os.path.exists(os.path.join(root, file[:-4] + '.cbin')):
+      if not os.path.exists(os.path.join(root, meta_filename)):
+        logging.info('meta file is corrupt for ' + file)
+        continue
+      if os.path.exists(os.path.join(root, file[:-4] + '.cbin')):
+        logging.debug('cbin file already exists for ' + file)
         continue
       
       # check the original binary file to see what type it is
@@ -51,10 +59,15 @@ for root, subdirs, files in os.walk(walk_dir):
       
       # get the meta file and store the content into a dictionary for lookup
       meta_dict = {}
-      with open(os.path.join(root, meta_filename), 'rb') as f:
-        for line in f:
-          (key, val) = line.rstrip().split(b'=')
-          meta_dict[key.decode("utf-8")] = val.decode("utf-8")
+      try:
+        with open(os.path.join(root, meta_filename), 'rb') as f:
+          for line in f:
+            (key, val) = line.rstrip().split(b'=')
+            meta_dict[key.decode("utf-8")] = val.decode("utf-8")
+      except:
+        logging.info('meta file is corrupt for ' + file)
+        continue
+            
       
       # get the necessary metadata for compression
       md_dtype = np.int16
